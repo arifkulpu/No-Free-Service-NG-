@@ -24,15 +24,15 @@ namespace RecruitmentHandler
                 if (topicMgr && topicMgr->speaker) {
                     auto ref = topicMgr->speaker.get();
                     auto* speaker = ref ? ref->As<RE::Actor>() : nullptr;
+                    auto* player = RE::PlayerCharacter::GetSingleton();
                     
-                    if (speaker) {
-                        // SADECE ID ve İSİM TESTİ
-                        RE::FormID id = speaker->formID;
+                    if (speaker && player) {
+                        // ALTIN SORGUSU TESTİ
+                        int32_t gold = player->GetGoldAmount();
                         std::string name = speaker->GetName();
                         
-                        // std::format yerine daha güvenli bir birleştirme deneyelim
                         char buf[256];
-                        snprintf(buf, sizeof(buf), "[NFS v4.1] %s (ID: %08X) - Test", name.c_str(), id);
+                        snprintf(buf, sizeof(buf), "[NFS v4.2] %s - Altinin: %d", name.c_str(), gold);
                         RE::DebugNotification(buf);
                     }
                 }
