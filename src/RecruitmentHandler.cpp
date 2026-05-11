@@ -20,9 +20,8 @@ namespace RecruitmentHandler
             dismissFunc(actor, true, false, true);
         }
 
-        // 2. Faction Derecesini -1 yap ve çıkar (En kesin yöntem)
+        // 2. Takipçi Grubundan Zorla Çıkar
         if (currentFollowerFaction) {
-            actor->SetFactionRank(currentFollowerFaction, -1);
             actor->RemoveFromFaction(currentFollowerFaction);
         }
 
@@ -95,7 +94,6 @@ namespace RecruitmentHandler
                 auto* actor = ref ? ref->As<RE::Actor>() : nullptr;
                 
                 if (actor && !EconomyManager::HasBeenPaid(actor)) {
-                    // Takipçi mi? (Hem IsPlayerTeammate hem Faction kontrolü)
                     bool isFollowing = actor->IsPlayerTeammate() || (currentFollowerFaction && actor->IsInFaction(currentFollowerFaction));
                     
                     if (isFollowing) {
