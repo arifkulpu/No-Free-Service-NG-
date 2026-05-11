@@ -19,18 +19,26 @@ namespace RecruitmentHandler
         RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent* a_event,
                                               RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override
         {
-            // v2: Sürüm takibi için yazı değiştirildi
             if (a_event && a_event->menuName == RE::DialogueMenu::MENU_NAME && a_event->opening) {
-                RE::DebugNotification("[NFS v2] Acil Durum Modu - Diyalog Algilandi");
+                auto* topicMgr = RE::MenuTopicManager::GetSingleton();
+                if (topicMgr && topicMgr->speaker) {
+                    auto ref = topicMgr->speaker.get();
+                    auto* speaker = ref ? ref->As<RE::Actor>() : nullptr;
+                    
+                    if (speaker) {
+                        // Sadece ismini alıp gösteriyoruz, başka hiçbir veriye dokunmuyoruz.
+                        std::string name = speaker->GetName();
+                        RE::DebugNotification(std::format("[NFS v3] {} ile konusuluyor", name).c_str());
+                    } else {
+                        RE::DebugNotification("[NFS v3] Konusulan kisi algilanamadi");
+                    }
+                }
             }
             return RE::BSEventNotifyControl::kContinue;
         }
     };
  
-    void Update()
-    {
-        // Stabilite testi için boş
-    }
+    void Update() {}
  
     void Install()
     {
