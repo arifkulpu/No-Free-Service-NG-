@@ -1,3 +1,4 @@
+#include "PCH.h"
 #include "EconomyManager.h"
 #include <RE/Skyrim.h>
 #include <RE/A/Actor.h>
@@ -11,7 +12,7 @@ namespace EconomyManager
 
     bool IsPotentialFollower(RE::Actor* a_actor)
     {
-        if (!a_actor || a_actor->IsDisabled() || !a_actor->Is3DLoaded()) return false;
+        if (!a_actor || a_actor->IsDisabled()) return false;
 
         // 1. Standart Takipçi Faction'ları
         static const RE::FormID followerFactions[] = {
@@ -23,13 +24,18 @@ namespace EconomyManager
 
         for (auto id : followerFactions) {
             auto* faction = RE::TESForm::LookupByID<RE::TESFaction>(id);
-            if (faction && a_actor->IsInFaction(faction)) return true;
+            if (faction && a_actor->IsInFaction(faction)) {
+                logger::info("IsPotentialFollower: {} is in follower faction {:X}", a_actor->GetName(), id);
+                return true;
+            }
         }
 
-        // 2. Modlu Takipçiler İçin Esnek Kontrol: 
-        // Eğer NPC zaten teammate ise veya "Follower" isminde bir keyword/faction içeriyorsa
-        if (a_actor->IsPlayerTeammate()) return true;
+        if (a_actor->IsPlayerTeammate()) {
+            logger::info("IsPotentialFollower: {} is a PlayerTeammate", a_actor->GetName());
+            return true;
+        }
 
+        logger::info("IsPotentialFollower: {} does not match any follower criteria.", a_actor->GetName());
         return false;
     }
 
@@ -37,45 +43,41 @@ namespace EconomyManager
     {
         if (!a_actor) return 500;
 
-        // Temel Ücret: (Seviye * 100) + 500
         int32_t level = static_cast<int32_t>(a_actor->GetLevel());
         if (level <= 0) level = 1;
         float baseCost = (level * 100.0f) + 500.0f;
 
-        // Sınıf Bazlı Çarpan
         float classMultiplier = 1.0f;
-        auto* actorBase = a_actor->GetActorBase() ? a_actor->GetActorBase()->As<RE::TESNPC>() : nullptr;
         
-        if (actorBase && actorBase->npcClass) {
-            auto* npcClass = actorBase->npcClass;
+        try {
+            auto* npcBase = a_actor->GetActorBase();
+            auto* npc = npcBase ? npcBase->As<RE::TESNPC>() : nullptr;
             
-            // Ekstra Güvenlik: Pointer'ın gerçekten bir Sınıf formu olduğundan emin ol
-            if (npcClass->GetFormType() == RE::FormType::Class) {
-                uint8_t magickaWeight = npcClass->data.attributeWeights.magicka;
-                uint8_t healthWeight = npcClass->data.attributeWeights.health;
-                uint8_t staminaWeight = npcClass->data.attributeWeights.stamina;
+            if (npc && npc->npcClass) {
+                auto* npcClass = npc->npcClass;
+                uintptr_t addr = reinterpret_cast<uintptr_t>(npcClass);
 
-                if (magickaWeight > healthWeight && magickaWeight > staminaWeight) {
-                    classMultiplier = 1.5f; // Büyücüler %50 daha pahalı
+                // ULTRA SAFETY: 0x1000000 altındaki adresler bozuktur.
+                if (addr > 0x1000000 && addr < 0x00007FFFFFFFFFFF) { 
+                    if (npcClass->GetFormType() == RE::FormType::Class) {
+                        uint8_t magicka = npcClass->data.attributeWeights.magicka;
+                        uint8_t health = npcClass->data.attributeWeights.health;
+                        uint8_t stamina = npcClass->data.attributeWeights.stamina;
+
+                        if (magicka > health && magicka > stamina) {
+                            classMultiplier = 1.5f;
+                        }
+                    }
+                } else {
+                    logger::warn("Suspicious npcClass pointer detected: {:X} for NPC: {}", addr, a_actor->GetName());
                 }
             }
+        } catch (...) {
+            // Hata durumunda varsayılanla devam
         }
 
-        // İlişki İndirimi
         float relationshipMultiplier = 1.0f;
-        auto* player = RE::PlayerCharacter::GetSingleton();
-        if (player && a_actor) {
-            // TODO: CommonLibSSE-NG sürümünde GetRelationshipRank fonksiyonu bulunamadı.
-            // Doğru fonksiyon ismini bulana kadar indirim devre dışı.
-            int32_t rank = 0; 
-            if (rank > 0) {
-                if (rank == 1) relationshipMultiplier = 0.90f;      // Dost: %10 indirim
-                else if (rank == 2) relationshipMultiplier = 0.75f; // Sırdaş: %25 indirim
-                else if (rank == 3) relationshipMultiplier = 0.50f; // Müttefik: %50 indirim
-                else if (rank >= 4) relationshipMultiplier = 0.25f; // Sevgili: %75 indirim
-            }
-        }
-
+        // GetRelationshipRank bu sürümde Actor üyesi değilse geçici olarak devre dışı
         return static_cast<int32_t>(baseCost * classMultiplier * relationshipMultiplier);
     }
 
@@ -84,18 +86,21 @@ namespace EconomyManager
     }
     
     void SetPaid(RE::Actor* a_actor) { 
-        if (a_actor) paidFollowers[a_actor->formID] = true; 
+        if (a_actor) {
+            paidFollowers[a_actor->formID] = true;
+            logger::info("Marked as paid: {} ({:X})", a_actor->GetName(), a_actor->formID);
+        }
     }
     
     void ClearPaid(RE::Actor* a_actor) { 
         if (a_actor) {
             paidFollowers[a_actor->formID] = false;
             paymentDays.erase(a_actor->formID);
+            logger::info("Payment cleared: {}", a_actor->GetName());
         }
     }
 
     int32_t CalculateWeeklyWage(RE::Actor* a_actor) { 
-        // Haftalık maaş, işe alım bedelinin %20'si kadar olsun
         return static_cast<int32_t>(CalculateRecruitmentCost(a_actor) * 0.20f); 
     }
 
