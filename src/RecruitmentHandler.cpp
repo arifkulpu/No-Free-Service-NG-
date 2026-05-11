@@ -27,12 +27,16 @@ namespace RecruitmentHandler
                     auto* player = RE::PlayerCharacter::GetSingleton();
                     
                     if (speaker && player) {
-                        // ALTIN SORGUSU TESTİ
-                        int32_t gold = player->GetGoldAmount();
-                        std::string name = speaker->GetName();
+                        // ALTINI MANUEL SAYMA (0x0000000F)
+                        auto* goldObj = RE::TESForm::LookupByID<RE::TESBoundObject>(0x0000000F);
+                        int32_t goldCount = 0;
+                        if (goldObj) {
+                            goldCount = player->GetItemCount(goldObj);
+                        }
                         
+                        std::string name = speaker->GetName();
                         char buf[256];
-                        snprintf(buf, sizeof(buf), "[NFS v4.2] %s - Altinin: %d", name.c_str(), gold);
+                        snprintf(buf, sizeof(buf), "[NFS v4.3] %s - Manuel Altin: %d", name.c_str(), goldCount);
                         RE::DebugNotification(buf);
                     }
                 }
