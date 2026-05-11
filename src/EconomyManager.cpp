@@ -44,17 +44,20 @@ namespace EconomyManager
 
         // Sınıf Bazlı Çarpan
         float classMultiplier = 1.0f;
-        auto* actorBase = a_actor->GetActorBase();
-        auto* npcClass = actorBase ? actorBase->npcClass : nullptr;
+        auto* actorBase = a_actor->GetActorBase() ? a_actor->GetActorBase()->As<RE::TESNPC>() : nullptr;
         
-        if (npcClass) {
-            // Eğer NPC'nin sınıfı Magicka ağırlıklıysa büyücü kabul et
-            uint8_t magickaWeight = npcClass->data.attributeWeights.magicka;
-            uint8_t healthWeight = npcClass->data.attributeWeights.health;
-            uint8_t staminaWeight = npcClass->data.attributeWeights.stamina;
+        if (actorBase && actorBase->npcClass) {
+            auto* npcClass = actorBase->npcClass;
+            
+            // Ekstra Güvenlik: Pointer'ın gerçekten bir Sınıf formu olduğundan emin ol
+            if (npcClass->GetFormType() == RE::FormType::Class) {
+                uint8_t magickaWeight = npcClass->data.attributeWeights.magicka;
+                uint8_t healthWeight = npcClass->data.attributeWeights.health;
+                uint8_t staminaWeight = npcClass->data.attributeWeights.stamina;
 
-            if (magickaWeight > healthWeight && magickaWeight > staminaWeight) {
-                classMultiplier = 1.5f; // Büyücüler %50 daha pahalı
+                if (magickaWeight > healthWeight && magickaWeight > staminaWeight) {
+                    classMultiplier = 1.5f; // Büyücüler %50 daha pahalı
+                }
             }
         }
 
