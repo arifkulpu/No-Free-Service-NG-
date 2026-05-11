@@ -25,11 +25,9 @@ namespace RecruitmentHandler
         // Muhafızları ve Hayvanları hariç tut
         if (a_actor->IsGuard()) return false;
         
-        auto* npcBase = a_actor->GetActorBase();
-        auto* npc = npcBase ? npcBase->As<RE::TESNPC>() : nullptr;
-        if (npc && npc->IsRace(RE::TESForm::LookupByID<RE::TESRace>(0x00013197))) return false; // Manakin/Statue check
+        auto* race = a_actor->GetRace();
+        if (race && race->formID == 0x00013197) return false; // Manakin check
         
-        // Takipçi olabilecek neredeyse her insansı NPC adaydır
         return true; 
     }
 
@@ -75,12 +73,11 @@ namespace RecruitmentHandler
 
         static float lastCheck = 0.0f;
         float currentTime = calendar->GetCurrentGameTime();
-        if (currentTime - lastCheck < 0.5f) return; // Yarım saniyede bir tarama (Performans için ideal)
+        if (currentTime - lastCheck < 0.5f) return; 
         lastCheck = currentTime;
 
         auto* goldObj = RE::TESForm::LookupByID<RE::TESBoundObject>(0x0000000F);
         
-        // ETRAFTAKİ TÜM AKTÖRLERİ TARA (Zorunlu Ödeme Kontrolü)
         auto* processLists = RE::ProcessLists::GetSingleton();
         if (processLists) {
             for (auto& handle : processLists->highActorHandles) {
@@ -88,14 +85,12 @@ namespace RecruitmentHandler
                 auto* actor = ref ? ref->As<RE::Actor>() : nullptr;
                 
                 if (actor && actor->IsPlayerTeammate() && !EconomyManager::HasBeenPaid(actor)) {
-                    // Kaçak takipçi yakalandı!
                     RE::DebugNotification(std::format("[NFS] {} ödeme yapmadan gruba katilamaz!", actor->GetName()).c_str());
                     HandleDismiss(actor);
                 }
             }
         }
 
-        // Haftalık Maaş Kontrolü
         auto& paidMap = EconomyManager::GetPaidMap();
         std::vector<RE::FormID> toDismiss;
         for (auto const& [id, isPaid] : paidMap) {
