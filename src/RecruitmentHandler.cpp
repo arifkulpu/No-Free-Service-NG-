@@ -13,22 +13,20 @@ namespace RecruitmentHandler
     {
         if (!actor) return;
         
-        // 1. Standart Kovma Fonksiyonu
+        // 1. Orijinal Kovma Fonksiyonu
         using func_t = void(RE::Actor*, bool, bool, bool);
         static REL::Relocation<func_t> dismissFunc{ REL::ID(37351) };
         if (dismissFunc.address()) {
             dismissFunc(actor, true, false, true);
         }
 
-        // 2. Takipçi Grubundan Zorla Çıkar (NFF için Kritik)
+        // 2. Faction Derecesini -1 yap ve çıkar (En kesin yöntem)
         if (currentFollowerFaction) {
+            actor->SetFactionRank(currentFollowerFaction, -1);
             actor->RemoveFromFaction(currentFollowerFaction);
         }
 
-        // 3. Takım Arkadaşı Durumunu Kapat
-        actor->SetPlayerTeammate(false);
-
-        // 4. AI Paketini Yenile
+        // 3. AI Güncelle
         actor->EvaluatePackage(true, true);
     }
 
@@ -90,7 +88,6 @@ namespace RecruitmentHandler
 
         auto* goldObj = RE::TESForm::LookupByID<RE::TESBoundObject>(0x0000000F);
         
-        // ETRAFTAKİ TÜM AKTÖRLERİ TARA
         auto* processLists = RE::ProcessLists::GetSingleton();
         if (processLists) {
             for (auto& handle : processLists->highActorHandles) {
@@ -98,6 +95,7 @@ namespace RecruitmentHandler
                 auto* actor = ref ? ref->As<RE::Actor>() : nullptr;
                 
                 if (actor && !EconomyManager::HasBeenPaid(actor)) {
+                    // Takipçi mi? (Hem IsPlayerTeammate hem Faction kontrolü)
                     bool isFollowing = actor->IsPlayerTeammate() || (currentFollowerFaction && actor->IsInFaction(currentFollowerFaction));
                     
                     if (isFollowing) {
@@ -108,7 +106,6 @@ namespace RecruitmentHandler
             }
         }
 
-        // Haftalık Maaş Kontrolü
         auto& paidMap = EconomyManager::GetPaidMap();
         std::vector<RE::FormID> toDismiss;
         for (auto const& [id, isPaid] : paidMap) {
