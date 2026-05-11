@@ -7,9 +7,7 @@
  
 namespace RecruitmentHandler
 {
-    // Bildirim gönderilmiş NPC'leri takip et
     static std::set<RE::FormID> s_notifiedActors;
-    // Ödeme bekleyen NPC'ler
     static std::set<RE::FormID> s_pendingPayment;
  
     class MenuWatcher : public RE::BSTEventSink<RE::MenuOpenCloseEvent>
@@ -35,44 +33,24 @@ namespace RecruitmentHandler
                         
                         if (speaker) {
                             RE::FormID speakerID = speaker->formID;
-                            logger::info("Dialogue opened with: {} ({:X})", speaker->GetName(), speakerID);
-
                             SKSE::GetTaskInterface()->AddTask([speakerID]() {
                                 auto* target = RE::TESForm::LookupByID<RE::Actor>(speakerID);
-                                if (!target) return;
- 
-                                if (EconomyManager::HasBeenPaid(target)) {
-                                    logger::info("Notification skipped: {} already paid.", target->GetName());
-                                    return;
-                                }
- 
-                                if (!EconomyManager::IsPotentialFollower(target)) {
-                                    logger::info("Notification skipped: {} is not a potential follower.", target->GetName());
-                                    return;
-                                }
- 
-                                // Bildirim daha önce gösterilmediyse göster
-                                if (s_notifiedActors.find(speakerID) == s_notifiedActors.end()) {
-                                    s_notifiedActors.insert(speakerID);
-                                    int32_t cost = EconomyManager::CalculateRecruitmentCost(target);
-                                    auto* player = RE::PlayerCharacter::GetSingleton();
-                                    int32_t gold = player ? player->GetGoldAmount() : 0;
-
-                                    std::string status = (gold >= cost) ? "Karsilayabilirsin" : "Altin Yetersiz!";
-                                    RE::DebugNotification(std::format("[NFS] {} - Bedel: {} Altin ({})", 
-                                        target->GetName(), cost, status).c_str());
-                                    logger::info("Price notification shown for {}: {} gold", target->GetName(), cost);
+                                if (target && !EconomyManager::HasBeenPaid(target) && EconomyManager::IsPotentialFollower(target)) {
+                                    if (s_notifiedActors.find(speakerID) == s_notifiedActors.end()) {
+                                        s_notifiedActors.insert(speakerID);
+                                        int32_t cost = EconomyManager::CalculateRecruitmentCost(target);
+                                        auto* player = RE::PlayerCharacter::GetSingleton();
+                                        int32_t gold = player ? player->GetGoldAmount() : 0;
+                                        std::string status = (gold >= cost) ? "Karsilayabilirsin" : "Altin Yetersiz!";
+                                        RE::DebugNotification(std::format("[NFS] {} - Bedel: {} Altin ({})", 
+                                            target->GetName(), cost, status).c_str());
+                                    }
                                 }
                             });
                         }
                     }
-                } else {
-                    // Diyalog kapandığında bildirim setini temizleme (tekrar konuşunca görüksün diye)
-                    // Ancak şimdilik sadece log basalım
-                    logger::info("Dialogue menu closed.");
                 }
             }
- 
             return RE::BSEventNotifyControl::kContinue;
         }
     };
@@ -82,7 +60,6 @@ namespace RecruitmentHandler
         auto* player = RE::PlayerCharacter::GetSingleton();
         if (!actor || !player) return;
  
-        logger::info("Processing payment for: {}", actor->GetName());
         int32_t cost = EconomyManager::CalculateRecruitmentCost(actor);
         int32_t playerGold = player->GetGoldAmount();
  
@@ -91,7 +68,6 @@ namespace RecruitmentHandler
             if (gold) {
                 player->RemoveItem(gold, cost, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
                 actor->AddObjectToContainer(gold, nullptr, cost, nullptr);
-                
                 EconomyManager::SetPaid(actor);
                 EconomyManager::UpdateLastPaymentDay(actor, RE::Calendar::GetSingleton()->GetCurrentGameTime());
  
@@ -101,22 +77,15 @@ namespace RecruitmentHandler
                     static REL::Relocation<func_t> playFunc{ RELOCATION_ID(17056, 17441) };
                     if (playFunc.address()) playFunc(goldSound, player);
                 }
- 
                 RE::DebugNotification(std::format("[NFS] {} Altin odendi. {} gruba katildi.", cost, actor->GetName()).c_str());
-                logger::info("Successfully paid {} for {}", cost, actor->GetName());
             }
         } else {
             RE::DebugNotification(std::format("[NFS] Altin yetersiz! {} ayriliyor.", actor->GetName()).c_str());
-            
             using func_t = void(RE::Actor*, bool, bool, bool);
             static REL::Relocation<func_t> dismissFunc{ REL::ID(37351) };
-            if (dismissFunc.address()) {
-                dismissFunc(actor, true, false, true);
-            }
+            if (dismissFunc.address()) dismissFunc(actor, true, false, true);
             actor->EvaluatePackage(true, true);
-            logger::warn("Insufficient gold: {} dismissed.", actor->GetName());
         }
- 
         s_notifiedActors.erase(actor->formID);
         s_pendingPayment.erase(actor->formID);
     }
@@ -126,20 +95,18 @@ namespace RecruitmentHandler
         auto* player = RE::PlayerCharacter::GetSingleton();
         if (!player) return;
  
-        auto* calendar = RE::Calendar::GetSingleton();
-        auto* processLists = RE::ProcessLists::GetSingleton();
-        if (!calendar || !processLists) return;
- 
-        // 1) Yeni takipçi kontrolü
-        for (auto& handle : processLists->highActorHandles) {
-            auto actorPtr = handle.get();
-            auto* actor = actorPtr ? actorPtr.get() : nullptr;
-            
+        // --- 1) CROSSHAIR ODAKLI ÖDEME YAKALAMA ---
+        // Sadece oyuncunun baktığı aktöre odaklanıyoruz
+        auto* crosshair = RE::CrosshairPickData::GetSingleton();
+        if (crosshair && crosshair->target) {
+            auto* targetRef = crosshair->target.get().get();
+            auto* actor = targetRef ? targetRef->As<RE::Actor>() : nullptr;
+
             if (actor && !actor->IsDisabled() && actor->IsPlayerTeammate()) {
                 if (!EconomyManager::HasBeenPaid(actor) && s_pendingPayment.find(actor->formID) == s_pendingPayment.end()) {
                     RE::FormID id = actor->formID;
                     s_pendingPayment.insert(id);
-                    logger::info("New teammate detected: {}. Scheduling payment check.", actor->GetName());
+                    logger::info("Focus payment: Detected teammate under crosshair: {}", actor->GetName());
 
                     SKSE::GetTaskInterface()->AddTask([id]() {
                         auto* target = RE::TESForm::LookupByID<RE::Actor>(id);
@@ -153,10 +120,13 @@ namespace RecruitmentHandler
             }
         }
  
-        // 2) Haftalık maaş kontrolü
+        // --- 2) HAFTALIK MAAŞ (Arka Planda Devam Eder) ---
+        auto* calendar = RE::Calendar::GetSingleton();
+        if (!calendar) return;
+
         static float lastWageCheck = 0.0f;
         float currentTime = calendar->GetCurrentGameTime();
-        if (currentTime - lastWageCheck < 0.05f) return; // Daha az sıklıkla kontrol (optimizasyon)
+        if (currentTime - lastWageCheck < 0.05f) return;
         lastWageCheck = currentTime;
  
         std::vector<RE::FormID> toDismiss;
@@ -164,7 +134,6 @@ namespace RecruitmentHandler
  
         for (auto const& [formID, isPaid] : paidMap) {
             if (!isPaid) continue;
- 
             auto* actor = RE::TESForm::LookupByID<RE::Actor>(formID);
             if (!actor || actor->IsDisabled() || !actor->IsPlayerTeammate()) continue;
  
@@ -176,7 +145,7 @@ namespace RecruitmentHandler
                     player->RemoveItem(gold, wage, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
                     actor->AddObjectToContainer(gold, nullptr, wage, nullptr);
                     EconomyManager::UpdateLastPaymentDay(actor, currentTime);
-                    RE::DebugNotification(std::format("[NFS] Haftalik maas: {} Altin ({}).", wage, actor->GetName()).c_str());
+                    RE::DebugNotification(std::format("[NFS] Maas odendi: {} ({}).", wage, actor->GetName()).c_str());
                 } else {
                     toDismiss.push_back(formID);
                 }
@@ -200,7 +169,7 @@ namespace RecruitmentHandler
         auto* ui = RE::UI::GetSingleton();
         if (ui) {
             ui->GetEventSource<RE::MenuOpenCloseEvent>()->AddEventSink(MenuWatcher::GetSingleton());
-            logger::info("RecruitmentHandler: Version 6.0 with deep logging installed.");
+            logger::info("RecruitmentHandler: Focus-Based System (Crosshair) installed.");
         }
     }
 }
