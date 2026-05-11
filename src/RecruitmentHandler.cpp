@@ -7,8 +7,6 @@
  
 namespace RecruitmentHandler
 {
-    static std::set<RE::FormID> s_notifiedActors;
- 
     class MenuWatcher : public RE::BSTEventSink<RE::MenuOpenCloseEvent>
     {
     public:
@@ -21,9 +19,9 @@ namespace RecruitmentHandler
         RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent* a_event,
                                               RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override
         {
+            // v2: Sürüm takibi için yazı değiştirildi
             if (a_event && a_event->menuName == RE::DialogueMenu::MENU_NAME && a_event->opening) {
-                // Diyalog açılınca bildirim göster ama NPC üzerinden isim ALMA (Çökme riski!)
-                RE::DebugNotification("[NFS] Diyalog Algilandi - Hizmet Bedeli: 500 Altin");
+                RE::DebugNotification("[NFS v2] Acil Durum Modu - Diyalog Algilandi");
             }
             return RE::BSEventNotifyControl::kContinue;
         }
@@ -31,7 +29,7 @@ namespace RecruitmentHandler
  
     void Update()
     {
-        // Çökme kaynağını bulmak için arka plan döngüsünü tamamen boşaltıyoruz
+        // Stabilite testi için boş
     }
  
     void Install()
