@@ -22,32 +22,27 @@ namespace RecruitmentHandler
         RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent* a_event,
                                               RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override
         {
-            if (!a_event) return RE::BSEventNotifyControl::kContinue;
- 
-            if (a_event->menuName == RE::DialogueMenu::MENU_NAME) {
-                if (a_event->opening) {
-                    auto* topicMgr = RE::MenuTopicManager::GetSingleton();
-                    if (topicMgr && topicMgr->speaker) {
-                        auto ref = topicMgr->speaker.get();
-                        auto* speaker = ref ? ref->As<RE::Actor>() : nullptr;
-                        
-                        if (speaker) {
-                            RE::FormID speakerID = speaker->formID;
-                            SKSE::GetTaskInterface()->AddTask([speakerID]() {
-                                auto* target = RE::TESForm::LookupByID<RE::Actor>(speakerID);
-                                if (target && !EconomyManager::HasBeenPaid(target) && EconomyManager::IsPotentialFollower(target)) {
-                                    if (s_notifiedActors.find(speakerID) == s_notifiedActors.end()) {
-                                        s_notifiedActors.insert(speakerID);
-                                        int32_t cost = EconomyManager::CalculateRecruitmentCost(target);
-                                        auto* player = RE::PlayerCharacter::GetSingleton();
-                                        int32_t gold = player ? player->GetGoldAmount() : 0;
-                                        std::string status = (gold >= cost) ? "Karsilayabilirsin" : "Altin Yetersiz!";
-                                        RE::DebugNotification(std::format("[NFS] {} - Bedel: {} Altin ({})", 
-                                            target->GetName(), cost, status).c_str());
-                                    }
+            if (a_event && a_event->menuName == RE::DialogueMenu::MENU_NAME && a_event->opening) {
+                auto* topicMgr = RE::MenuTopicManager::GetSingleton();
+                if (topicMgr && topicMgr->speaker) {
+                    auto ref = topicMgr->speaker.get();
+                    auto* speaker = ref ? ref->As<RE::Actor>() : nullptr;
+                    if (speaker) {
+                        RE::FormID speakerID = speaker->formID;
+                        SKSE::GetTaskInterface()->AddTask([speakerID]() {
+                            auto* target = RE::TESForm::LookupByID<RE::Actor>(speakerID);
+                            if (target && !EconomyManager::HasBeenPaid(target) && EconomyManager::IsPotentialFollower(target)) {
+                                if (s_notifiedActors.find(speakerID) == s_notifiedActors.end()) {
+                                    s_notifiedActors.insert(speakerID);
+                                    int32_t cost = EconomyManager::CalculateRecruitmentCost(target);
+                                    auto* player = RE::PlayerCharacter::GetSingleton();
+                                    int32_t gold = player ? player->GetGoldAmount() : 0;
+                                    std::string status = (gold >= cost) ? "Karsilayabilirsin" : "Altin Yetersiz!";
+                                    RE::DebugNotification(std::format("[NFS] {} - Bedel: {} Altin ({})", 
+                                        target->GetName(), cost, status).c_str());
                                 }
-                            });
-                        }
+                            }
+                        });
                     }
                 }
             }
@@ -97,15 +92,12 @@ namespace RecruitmentHandler
  
         auto* crosshair = RE::CrosshairPickData::GetSingleton();
         if (crosshair) {
-            // target[0] genellikle ana hedeftir
             auto ref = crosshair->target[0].get();
             auto* actor = ref ? ref->As<RE::Actor>() : nullptr;
-
             if (actor && !actor->IsDisabled() && actor->IsPlayerTeammate()) {
                 if (!EconomyManager::HasBeenPaid(actor) && s_pendingPayment.find(actor->formID) == s_pendingPayment.end()) {
                     RE::FormID id = actor->formID;
                     s_pendingPayment.insert(id);
-
                     SKSE::GetTaskInterface()->AddTask([id]() {
                         auto* target = RE::TESForm::LookupByID<RE::Actor>(id);
                         if (target && target->IsPlayerTeammate() && !EconomyManager::HasBeenPaid(target)) {
@@ -120,7 +112,6 @@ namespace RecruitmentHandler
  
         auto* calendar = RE::Calendar::GetSingleton();
         if (!calendar) return;
-
         static float lastWageCheck = 0.0f;
         float currentTime = calendar->GetCurrentGameTime();
         if (currentTime - lastWageCheck < 0.05f) return;
@@ -128,12 +119,10 @@ namespace RecruitmentHandler
  
         std::vector<RE::FormID> toDismiss;
         auto& paidMap = EconomyManager::GetPaidMap();
- 
         for (auto const& [formID, isPaid] : paidMap) {
             if (!isPaid) continue;
             auto* actor = RE::TESForm::LookupByID<RE::Actor>(formID);
             if (!actor || actor->IsDisabled() || !actor->IsPlayerTeammate()) continue;
- 
             float lastPayment = EconomyManager::GetLastPaymentDay(actor);
             if (lastPayment > 0.0f && (currentTime - lastPayment >= 7.0f)) {
                 int32_t wage = EconomyManager::CalculateWeeklyWage(actor);

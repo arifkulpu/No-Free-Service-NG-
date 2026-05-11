@@ -30,17 +30,10 @@ namespace EconomyManager
                     RE::FormID fID = factionInfo.faction->formID;
                     if (fID == 0x0005C84E || fID == 0x000CB7DF || fID == 0x0005C84C || 
                         fID == 0x000B2D6D || fID == 0x00019C8E) return true;
-
-                    std::string fName = factionInfo.faction->GetFullName();
-                    if (!fName.empty()) {
-                        std::transform(fName.begin(), fName.end(), fName.begin(), ::tolower);
-                        if (fName.find("follower") != std::string::npos || fName.find("hireling") != std::string::npos) return true;
-                    }
                 }
             }
         }
 
-        // RelationshipRank bu sürümde Actor üyesi olmadığı için atlanıyor
         auto* ui = RE::UI::GetSingleton();
         if (ui && ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME)) return true;
 
@@ -50,26 +43,18 @@ namespace EconomyManager
     int32_t CalculateRecruitmentCost(RE::Actor* a_actor)
     {
         if (!a_actor) return 500;
+        
+        // Sadece Seviye Bazlı Hesaplama (En Güvenli Yol)
         int32_t level = static_cast<int32_t>(a_actor->GetLevel());
         if (level <= 0) level = 1;
-        float baseCost = (level * 100.0f) + 500.0f;
-        float classMultiplier = 1.0f;
-        try {
-            auto* npcBase = a_actor->GetActorBase();
-            auto* npc = npcBase ? npcBase->As<RE::TESNPC>() : nullptr;
-            if (npc && npc->npcClass) {
-                uintptr_t addr = reinterpret_cast<uintptr_t>(npc->npcClass);
-                if (addr > 0x1000000 && addr < 0x00007FFFFFFFFFFF) { 
-                    if (npc->npcClass->GetFormType() == RE::FormType::Class) {
-                        uint8_t magicka = npc->npcClass->data.attributeWeights.magicka;
-                        uint8_t health = npc->npcClass->data.attributeWeights.health;
-                        uint8_t stamina = npc->npcClass->data.attributeWeights.stamina;
-                        if (magicka > health && magicka > stamina) classMultiplier = 1.5f;
-                    }
-                }
-            }
-        } catch (...) {}
-        return static_cast<int32_t>(baseCost * classMultiplier);
+        
+        // (Seviye * 100) + 500 Gold
+        int32_t cost = (level * 100) + 500;
+        
+        // Üst limit koyalım (Örn: Max 10.000 Gold)
+        if (cost > 10000) cost = 10000;
+        
+        return cost;
     }
 
     bool HasBeenPaid(RE::Actor* a_actor) { return a_actor && paidFollowers.count(a_actor->formID) && paidFollowers[a_actor->formID]; }
