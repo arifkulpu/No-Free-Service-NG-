@@ -13,20 +13,22 @@ namespace RecruitmentHandler
     {
         if (!actor) return;
         
-        // 1. Standart Kovma
+        // 1. Standart Kovma Fonksiyonu
         using func_t = void(RE::Actor*, bool, bool, bool);
         static REL::Relocation<func_t> dismissFunc{ REL::ID(37351) };
         if (dismissFunc.address()) {
             dismissFunc(actor, true, false, true);
         }
 
-        // 2. NFF ve Diğerleri için İlişkiyi Sıfırla
-        auto* player = RE::PlayerCharacter::GetSingleton();
-        if (player) {
-            actor->SetRelationshipRank(player, 0);
+        // 2. Takipçi Grubundan Zorla Çıkar (NFF için Kritik)
+        if (currentFollowerFaction) {
+            actor->RemoveFromFaction(currentFollowerFaction);
         }
 
-        // 3. AI Paketini Yenile
+        // 3. Takım Arkadaşı Durumunu Kapat
+        actor->SetPlayerTeammate(false);
+
+        // 4. AI Paketini Yenile
         actor->EvaluatePackage(true, true);
     }
 
@@ -64,13 +66,8 @@ namespace RecruitmentHandler
                             EconomyManager::SetPaid(speaker);
                             EconomyManager::UpdateLastPaymentDay(speaker, RE::Calendar::GetSingleton()->GetCurrentGameTime());
                             
-                            // Ödeme yapıldı, ilişkiyi yükselt (NFF için önemli)
-                            speaker->SetRelationshipRank(player, 3);
-                            
-                            RE::DebugNotification(std::format("[NFS] {} hizmet bedeli alindi. Artik seni takip edebilir.", speaker->GetName()).c_str());
+                            RE::DebugNotification(std::format("[NFS] {} hizmet bedeli alindi.", speaker->GetName()).c_str());
                         } else {
-                            // Ödeme yapılmadı, ilişkiyi düşük tut
-                            speaker->SetRelationshipRank(player, 0);
                             RE::DebugNotification(std::format("[NFS] {} için 500 Altin gerekiyor!", speaker->GetName()).c_str());
                         }
                     }
@@ -101,7 +98,6 @@ namespace RecruitmentHandler
                 auto* actor = ref ? ref->As<RE::Actor>() : nullptr;
                 
                 if (actor && !EconomyManager::HasBeenPaid(actor)) {
-                    // Takipçi olup olmadığını hem IsPlayerTeammate hem de Faction ile kontrol et
                     bool isFollowing = actor->IsPlayerTeammate() || (currentFollowerFaction && actor->IsInFaction(currentFollowerFaction));
                     
                     if (isFollowing) {
