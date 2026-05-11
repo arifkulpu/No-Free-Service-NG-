@@ -28,7 +28,7 @@ namespace RecruitmentHandler
                 if (a_event->opening) {
                     auto* topicMgr = RE::MenuTopicManager::GetSingleton();
                     if (topicMgr && topicMgr->speaker) {
-                        auto* ref = topicMgr->speaker.get().get();
+                        auto ref = topicMgr->speaker.get();
                         auto* speaker = ref ? ref->As<RE::Actor>() : nullptr;
                         
                         if (speaker) {
@@ -95,18 +95,16 @@ namespace RecruitmentHandler
         auto* player = RE::PlayerCharacter::GetSingleton();
         if (!player) return;
  
-        // --- 1) CROSSHAIR ODAKLI ÖDEME YAKALAMA ---
-        // Sadece oyuncunun baktığı aktöre odaklanıyoruz
         auto* crosshair = RE::CrosshairPickData::GetSingleton();
-        if (crosshair && crosshair->target) {
-            auto* targetRef = crosshair->target.get().get();
-            auto* actor = targetRef ? targetRef->As<RE::Actor>() : nullptr;
+        if (crosshair) {
+            // target[0] genellikle ana hedeftir
+            auto ref = crosshair->target[0].get();
+            auto* actor = ref ? ref->As<RE::Actor>() : nullptr;
 
             if (actor && !actor->IsDisabled() && actor->IsPlayerTeammate()) {
                 if (!EconomyManager::HasBeenPaid(actor) && s_pendingPayment.find(actor->formID) == s_pendingPayment.end()) {
                     RE::FormID id = actor->formID;
                     s_pendingPayment.insert(id);
-                    logger::info("Focus payment: Detected teammate under crosshair: {}", actor->GetName());
 
                     SKSE::GetTaskInterface()->AddTask([id]() {
                         auto* target = RE::TESForm::LookupByID<RE::Actor>(id);
@@ -120,7 +118,6 @@ namespace RecruitmentHandler
             }
         }
  
-        // --- 2) HAFTALIK MAAŞ (Arka Planda Devam Eder) ---
         auto* calendar = RE::Calendar::GetSingleton();
         if (!calendar) return;
 
@@ -145,7 +142,6 @@ namespace RecruitmentHandler
                     player->RemoveItem(gold, wage, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
                     actor->AddObjectToContainer(gold, nullptr, wage, nullptr);
                     EconomyManager::UpdateLastPaymentDay(actor, currentTime);
-                    RE::DebugNotification(std::format("[NFS] Maas odendi: {} ({}).", wage, actor->GetName()).c_str());
                 } else {
                     toDismiss.push_back(formID);
                 }
@@ -169,7 +165,6 @@ namespace RecruitmentHandler
         auto* ui = RE::UI::GetSingleton();
         if (ui) {
             ui->GetEventSource<RE::MenuOpenCloseEvent>()->AddEventSink(MenuWatcher::GetSingleton());
-            logger::info("RecruitmentHandler: Focus-Based System (Crosshair) installed.");
         }
     }
 }
