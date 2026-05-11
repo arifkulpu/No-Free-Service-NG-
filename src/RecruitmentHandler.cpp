@@ -7,27 +7,35 @@
  
 namespace RecruitmentHandler
 {
+    static auto* currentFollowerFaction = RE::TESForm::LookupByID<RE::TESFaction>(0x0005C84E);
+
     void HandleDismiss(RE::Actor* actor)
     {
         if (!actor) return;
+        
+        // 1. Standart Kovma
         using func_t = void(RE::Actor*, bool, bool, bool);
         static REL::Relocation<func_t> dismissFunc{ REL::ID(37351) };
         if (dismissFunc.address()) {
             dismissFunc(actor, true, false, true);
-            actor->EvaluatePackage(true, true);
         }
+
+        // 2. NFF ve Diğerleri için İlişkiyi Sıfırla
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (player) {
+            actor->SetRelationshipRank(player, 0);
+        }
+
+        // 3. AI Paketini Yenile
+        actor->EvaluatePackage(true, true);
     }
 
     bool IsCandidate(RE::Actor* a_actor)
     {
         if (!a_actor || a_actor->IsPlayerRef()) return false;
-        
-        // Muhafızları ve Hayvanları hariç tut
         if (a_actor->IsGuard()) return false;
-        
         auto* race = a_actor->GetRace();
-        if (race && race->formID == 0x00013197) return false; // Manakin check
-        
+        if (race && race->formID == 0x00013197) return false;
         return true; 
     }
 
@@ -52,10 +60,17 @@ namespace RecruitmentHandler
                         if (goldObj && player->GetItemCount(goldObj) >= cost) {
                             player->RemoveItem(goldObj, cost, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
                             speaker->AddObjectToContainer(goldObj, nullptr, cost, nullptr);
+                            
                             EconomyManager::SetPaid(speaker);
                             EconomyManager::UpdateLastPaymentDay(speaker, RE::Calendar::GetSingleton()->GetCurrentGameTime());
-                            RE::DebugNotification(std::format("[NFS] {} hizmet bedeli ({} Altin) alindi.", speaker->GetName(), cost).c_str());
+                            
+                            // Ödeme yapıldı, ilişkiyi yükselt (NFF için önemli)
+                            speaker->SetRelationshipRank(player, 3);
+                            
+                            RE::DebugNotification(std::format("[NFS] {} hizmet bedeli alindi. Artik seni takip edebilir.", speaker->GetName()).c_str());
                         } else {
+                            // Ödeme yapılmadı, ilişkiyi düşük tut
+                            speaker->SetRelationshipRank(player, 0);
                             RE::DebugNotification(std::format("[NFS] {} için 500 Altin gerekiyor!", speaker->GetName()).c_str());
                         }
                     }
@@ -78,25 +93,35 @@ namespace RecruitmentHandler
 
         auto* goldObj = RE::TESForm::LookupByID<RE::TESBoundObject>(0x0000000F);
         
+        // ETRAFTAKİ TÜM AKTÖRLERİ TARA
         auto* processLists = RE::ProcessLists::GetSingleton();
         if (processLists) {
             for (auto& handle : processLists->highActorHandles) {
                 auto ref = handle.get();
                 auto* actor = ref ? ref->As<RE::Actor>() : nullptr;
                 
-                if (actor && actor->IsPlayerTeammate() && !EconomyManager::HasBeenPaid(actor)) {
-                    RE::DebugNotification(std::format("[NFS] {} ödeme yapmadan gruba katilamaz!", actor->GetName()).c_str());
-                    HandleDismiss(actor);
+                if (actor && !EconomyManager::HasBeenPaid(actor)) {
+                    // Takipçi olup olmadığını hem IsPlayerTeammate hem de Faction ile kontrol et
+                    bool isFollowing = actor->IsPlayerTeammate() || (currentFollowerFaction && actor->IsInFaction(currentFollowerFaction));
+                    
+                    if (isFollowing) {
+                        RE::DebugNotification(std::format("[NFS] {} ödeme yapmadan seni takip edemez!", actor->GetName()).c_str());
+                        HandleDismiss(actor);
+                    }
                 }
             }
         }
 
+        // Haftalık Maaş Kontrolü
         auto& paidMap = EconomyManager::GetPaidMap();
         std::vector<RE::FormID> toDismiss;
         for (auto const& [id, isPaid] : paidMap) {
             if (!isPaid) continue;
             auto* actor = RE::TESForm::LookupByID<RE::Actor>(id);
-            if (!actor || !actor->IsPlayerTeammate()) continue;
+            if (!actor) continue;
+
+            bool isFollowing = actor->IsPlayerTeammate() || (currentFollowerFaction && actor->IsInFaction(currentFollowerFaction));
+            if (!isFollowing) continue;
 
             float lastPay = EconomyManager::GetLastPaymentDay(actor);
             if (currentTime - lastPay >= 7.0f) {
@@ -104,7 +129,7 @@ namespace RecruitmentHandler
                 if (player->GetItemCount(goldObj) >= wage) {
                     player->RemoveItem(goldObj, wage, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
                     EconomyManager::UpdateLastPaymentDay(actor, currentTime);
-                    RE::DebugNotification(std::format("[NFS] Haftalik maas: {} Altin ({}).", wage, actor->GetName()).c_str());
+                    RE::DebugNotification(std::format("[NFS] Haftalik maas ödendi: {}.", actor->GetName()).c_str());
                 } else {
                     toDismiss.push_back(id);
                 }
