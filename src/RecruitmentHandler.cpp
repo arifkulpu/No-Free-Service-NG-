@@ -26,18 +26,14 @@ namespace RecruitmentHandler
                     auto* speaker = ref ? ref->As<RE::Actor>() : nullptr;
                     
                     if (speaker) {
-                        // Daha önce ödeme yapıldı mı kontrol et
-                        if (!EconomyManager::HasBeenPaid(speaker)) {
-                            int32_t cost = EconomyManager::CalculateRecruitmentCost(speaker);
-                            auto* player = RE::PlayerCharacter::GetSingleton();
-                            int32_t playerGold = player ? player->GetGoldAmount() : 0;
-                            
-                            std::string status = (playerGold >= cost) ? "Karsilayabilirsin" : "Altin Yetersiz!";
-                            RE::DebugNotification(std::format("[NFS v4] {} - Bedel: {} Altin ({})", 
-                                speaker->GetName(), cost, status).c_str());
-                        } else {
-                            RE::DebugNotification(std::format("[NFS v4] {} zaten ödeme yapılmış.", speaker->GetName()).c_str());
-                        }
+                        // SADECE ID ve İSİM TESTİ
+                        RE::FormID id = speaker->formID;
+                        std::string name = speaker->GetName();
+                        
+                        // std::format yerine daha güvenli bir birleştirme deneyelim
+                        char buf[256];
+                        snprintf(buf, sizeof(buf), "[NFS v4.1] %s (ID: %08X) - Test", name.c_str(), id);
+                        RE::DebugNotification(buf);
                     }
                 }
             }
