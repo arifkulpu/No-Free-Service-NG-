@@ -4,6 +4,7 @@
 #include <RE/A/Actor.h>
 #include <map>
 #include <algorithm>
+#include <string>
 
 namespace EconomyManager
 {
@@ -14,28 +15,47 @@ namespace EconomyManager
     {
         if (!a_actor || a_actor->IsDisabled()) return false;
 
-        // 1. Standart Takipçi Faction'ları
+        // 1. Zaten takım arkadaşıysa kesinlikle takipçidir
+        if (a_actor->IsPlayerTeammate()) return true;
+
+        // 2. Standart ve Genişletilmiş Takipçi Faction ID'leri
         static const RE::FormID followerFactions[] = {
             0x0005C84E, // CurrentFollowerFaction
             0x000CB7DF, // WIFollowerFaction
             0x0005C84C, // PotentialFollowerFaction
-            0x000B2D6D  // PotentialHirelingFaction
+            0x000B2D6D, // PotentialHirelingFaction
+            0x00019C8E  // PlayerFollowerFaction
         };
 
         for (auto id : followerFactions) {
             auto* faction = RE::TESForm::LookupByID<RE::TESFaction>(id);
-            if (faction && a_actor->IsInFaction(faction)) {
-                logger::info("IsPotentialFollower: {} is in follower faction {:X}", a_actor->GetName(), id);
-                return true;
+            if (faction && a_actor->IsInFaction(faction)) return true;
+        }
+
+        // 3. Modlu Takipçiler İçin İsim Taraması (Esnek Kontrol)
+        // NPC'nin dahil olduğu tüm faction'ları gez ve isminde "Follower" geçen var mı bak
+        auto* npcBase = a_actor->GetActorBase();
+        auto* npc = npcBase ? npcBase->As<RE::TESNPC>() : nullptr;
+        if (npc) {
+            for (auto& factionInfo : npc->factions) {
+                if (factionInfo.faction) {
+                    std::string fName = factionInfo.faction->GetFullName();
+                    std::transform(fName.begin(), fName.end(), fName.begin(), ::tolower);
+                    if (fName.find("follower") != std::string::npos || fName.find("hireling") != std::string::npos) {
+                        logger::info("IsPotentialFollower: {} matched via faction name: {}", a_actor->GetName(), fName);
+                        return true;
+                    }
+                }
             }
         }
 
-        if (a_actor->IsPlayerTeammate()) {
-            logger::info("IsPotentialFollower: {} is a PlayerTeammate", a_actor->GetName());
+        // 4. İlişki Seviyesi Kontrolü (Fallback)
+        // Eğer oyuncuyla dostluğu varsa takipçi olma ihtimali yüksektir
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (player && a_actor->GetRelationshipRank(player) > 0) {
             return true;
         }
 
-        logger::info("IsPotentialFollower: {} does not match any follower criteria.", a_actor->GetName());
         return false;
     }
 
@@ -48,37 +68,23 @@ namespace EconomyManager
         float baseCost = (level * 100.0f) + 500.0f;
 
         float classMultiplier = 1.0f;
-        
         try {
             auto* npcBase = a_actor->GetActorBase();
             auto* npc = npcBase ? npcBase->As<RE::TESNPC>() : nullptr;
-            
             if (npc && npc->npcClass) {
-                auto* npcClass = npc->npcClass;
-                uintptr_t addr = reinterpret_cast<uintptr_t>(npcClass);
-
-                // ULTRA SAFETY: 0x1000000 altındaki adresler bozuktur.
+                uintptr_t addr = reinterpret_cast<uintptr_t>(npc->npcClass);
                 if (addr > 0x1000000 && addr < 0x00007FFFFFFFFFFF) { 
-                    if (npcClass->GetFormType() == RE::FormType::Class) {
-                        uint8_t magicka = npcClass->data.attributeWeights.magicka;
-                        uint8_t health = npcClass->data.attributeWeights.health;
-                        uint8_t stamina = npcClass->data.attributeWeights.stamina;
-
-                        if (magicka > health && magicka > stamina) {
-                            classMultiplier = 1.5f;
-                        }
+                    if (npc->npcClass->GetFormType() == RE::FormType::Class) {
+                        uint8_t magicka = npc->npcClass->data.attributeWeights.magicka;
+                        uint8_t health = npc->npcClass->data.attributeWeights.health;
+                        uint8_t stamina = npc->npcClass->data.attributeWeights.stamina;
+                        if (magicka > health && magicka > stamina) classMultiplier = 1.5f;
                     }
-                } else {
-                    logger::warn("Suspicious npcClass pointer detected: {:X} for NPC: {}", addr, a_actor->GetName());
                 }
             }
-        } catch (...) {
-            // Hata durumunda varsayılanla devam
-        }
+        } catch (...) {}
 
-        float relationshipMultiplier = 1.0f;
-        // GetRelationshipRank bu sürümde Actor üyesi değilse geçici olarak devre dışı
-        return static_cast<int32_t>(baseCost * classMultiplier * relationshipMultiplier);
+        return static_cast<int32_t>(baseCost * classMultiplier);
     }
 
     bool HasBeenPaid(RE::Actor* a_actor) { 
@@ -86,25 +92,19 @@ namespace EconomyManager
     }
     
     void SetPaid(RE::Actor* a_actor) { 
-        if (a_actor) {
-            paidFollowers[a_actor->formID] = true;
-            logger::info("Marked as paid: {} ({:X})", a_actor->GetName(), a_actor->formID);
-        }
+        if (a_actor) paidFollowers[a_actor->formID] = true; 
     }
     
     void ClearPaid(RE::Actor* a_actor) { 
         if (a_actor) {
             paidFollowers[a_actor->formID] = false;
             paymentDays.erase(a_actor->formID);
-            logger::info("Payment cleared: {}", a_actor->GetName());
         }
     }
 
     int32_t CalculateWeeklyWage(RE::Actor* a_actor) { 
         return static_cast<int32_t>(CalculateRecruitmentCost(a_actor) * 0.20f); 
     }
-
-    bool IsExempt(RE::Actor* a_actor) { return false; }
 
     void UpdateLastPaymentDay(RE::Actor* a_actor, float a_day) {
         if (a_actor) paymentDays[a_actor->formID] = a_day;
