@@ -24,16 +24,26 @@ namespace RecruitmentHandler
                 if (topicMgr && topicMgr->speaker) {
                     auto ref = topicMgr->speaker.get();
                     auto* speaker = ref ? ref->As<RE::Actor>() : nullptr;
+                    auto* player = RE::PlayerCharacter::GetSingleton();
                     
-                    if (speaker) {
-                        // TAKİPÇİ DURUMU TESTİ
-                        bool isFollower = speaker->IsPlayerTeammate();
-                        std::string name = speaker->GetName();
+                    if (speaker && player && !EconomyManager::HasBeenPaid(speaker)) {
+                        auto* goldObj = RE::TESForm::LookupByID<RE::TESBoundObject>(0x0000000F);
+                        int32_t cost = 500; // Şimdilik sabit fiyat
                         
-                        char buf[256];
-                        snprintf(buf, sizeof(buf), "[NFS v4.4] %s - Takipci mi: %s", 
-                            name.c_str(), isFollower ? "EVET" : "HAYIR");
-                        RE::DebugNotification(buf);
+                        if (goldObj && player->GetItemCount(goldObj) >= cost) {
+                            // PARAYI DÜŞÜR (CRITICAL TEST)
+                            player->RemoveItem(goldObj, cost, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+                            speaker->AddObjectToContainer(goldObj, nullptr, cost, nullptr);
+                            
+                            EconomyManager::SetPaid(speaker);
+                            EconomyManager::UpdateLastPaymentDay(speaker, RE::Calendar::GetSingleton()->GetCurrentGameTime());
+                            
+                            char buf[256];
+                            snprintf(buf, sizeof(buf), "[NFS v5] %s icin %d Altin odendi.", speaker->GetName(), cost);
+                            RE::DebugNotification(buf);
+                        } else {
+                            RE::DebugNotification("[NFS v5] Altin yetersiz, hizmet sunulmuyor.");
+                        }
                     }
                 }
             }
