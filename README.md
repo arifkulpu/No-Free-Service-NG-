@@ -28,7 +28,7 @@ Skyrim'de "Bedava hizmet yok!" felsefesiyle yoldaşlık sistemini ekonomiye bağ
 
 ## 📜 Krediler
 
-- **Geliştiriciler:** Arif KULPU & Antigravity (Google DeepMind Team)
+- **Geliştiriciler:** Arif KULPU
 - **Altyapı:** CommonLibSSE-NG & SKSE Team
 
 ---
