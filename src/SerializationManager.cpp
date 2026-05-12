@@ -12,20 +12,23 @@ namespace SerializationManager
     void SaveCallback(SKSE::SerializationInterface* a_intfc)
     {
         if (a_intfc->OpenRecord(PaidMapType, 0)) {
-            auto& paidMap = EconomyManager::GetPaidMap();
+            auto paidMap = EconomyManager::GetPaidMap();
             size_t size = paidMap.size();
             a_intfc->WriteRecordData(size);
-            for (auto const& [formID, paid] : paidMap) {
+            for (auto const& [id, paid] : paidMap) {
+                RE::FormID formID = id;
                 a_intfc->WriteRecordData(formID);
                 a_intfc->WriteRecordData(paid);
             }
         }
 
         if (a_intfc->OpenRecord(PaymentDayType, 0)) {
-            auto& dayMap = EconomyManager::GetPaymentDayMap();
+            auto dayMap = EconomyManager::GetPaymentDayMap();
             size_t size = dayMap.size();
             a_intfc->WriteRecordData(size);
-            for (auto const& [formID, day] : dayMap) {
+            for (auto const& [id, dayValue] : dayMap) {
+                RE::FormID formID = id;
+                float day = dayValue;
                 a_intfc->WriteRecordData(formID);
                 a_intfc->WriteRecordData(day);
             }
@@ -45,11 +48,13 @@ namespace SerializationManager
                 for (size_t i = 0; i < size; ++i) {
                     RE::FormID oldFormID;
                     a_intfc->ReadRecordData(oldFormID);
+                    
+                    bool paid;
+                    a_intfc->ReadRecordData(paid);
+
                     RE::FormID newFormID;
                     if (a_intfc->ResolveFormID(oldFormID, newFormID)) {
-                        bool paid;
-                        a_intfc->ReadRecordData(paid);
-                        EconomyManager::GetPaidMap()[newFormID] = paid;
+                        EconomyManager::SetPaidFromLoad(newFormID, paid);
                     }
                 }
             } else if (type == PaymentDayType) {
@@ -58,11 +63,13 @@ namespace SerializationManager
                 for (size_t i = 0; i < size; ++i) {
                     RE::FormID oldFormID;
                     a_intfc->ReadRecordData(oldFormID);
+                    
+                    float day;
+                    a_intfc->ReadRecordData(day);
+
                     RE::FormID newFormID;
                     if (a_intfc->ResolveFormID(oldFormID, newFormID)) {
-                        float day;
-                        a_intfc->ReadRecordData(day);
-                        EconomyManager::GetPaymentDayMap()[newFormID] = day;
+                        EconomyManager::SetPaymentDayFromLoad(newFormID, day);
                     }
                 }
             }
