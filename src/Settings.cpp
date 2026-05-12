@@ -5,8 +5,8 @@
 
 namespace Settings
 {
-    int32_t RecruitmentBaseCost = 200;
-    int32_t RecruitmentLevelMultiplier = 20;
+    int32_t RecruitmentBaseCost = 500;
+    int32_t RecruitmentLevelMultiplier = 50;
     int32_t WeeklyWage = 150;
     int32_t GracePeriodDuration = 30;
 
@@ -19,8 +19,8 @@ namespace Settings
             std::ofstream outFile(path);
             if (outFile.is_open()) {
                 outFile << "[General]" << std::endl;
-                outFile << "RecruitmentBaseCost=200" << std::endl;
-                outFile << "RecruitmentLevelMultiplier=20" << std::endl;
+                outFile << "RecruitmentBaseCost=500" << std::endl;
+                outFile << "RecruitmentLevelMultiplier=50" << std::endl;
                 outFile << "WeeklyWage=150" << std::endl;
                 outFile << "GracePeriodDuration=30" << std::endl;
                 outFile.close();
