@@ -14,6 +14,7 @@ add_library(${PROJECT_NAME} SHARED
     src/EconomyManager.cpp
     src/RecruitmentHandler.cpp
     src/SerializationManager.cpp
+    src/Settings.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE src)

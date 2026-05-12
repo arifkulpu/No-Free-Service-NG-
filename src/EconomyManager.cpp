@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include "Settings.h"
 #include <RE/Skyrim.h>
 #include <map>
 #include <chrono>
@@ -22,7 +23,7 @@ namespace EconomyManager
         auto* player = RE::PlayerCharacter::GetSingleton();
         if (!player) return false;
 
-        // 1. Explicit Follower Factions (The most reliable check)
+        // 1. Explicit Follower Factions
         static auto* followerFaction = RE::TESForm::LookupByID<RE::TESFaction>(0x0005C84E);
         if (followerFaction && a_actor->IsInFaction(followerFaction)) return true;
 
@@ -33,10 +34,10 @@ namespace EconomyManager
         // 2. Current Teammate Status
         if (a_actor->IsPlayerTeammate()) return true;
 
-        // 3. Filter out Merchants/Vendors (Important!)
+        // 3. Filter out Merchants/Vendors
         if (a_actor->GetActorRuntimeData().vendorFaction != nullptr) return false;
 
-        // 4. Voice Type Filtering (Refined for modded and vanilla followers)
+        // 4. Voice Type Filtering
         auto* base = a_actor->GetActorBase();
         if (base && base->voiceType) {
             std::string voiceName = base->voiceType->GetFormEditorID();
@@ -45,7 +46,7 @@ namespace EconomyManager
             static const std::vector<std::string> allowedVoices = {
                 "femaleeventoned", "femaleyoungeager", "femalecommander", "femalesultry", "femalecondescending",
                 "maleyoungeager", "maleeventoned", "maledrunk", "malecommander", "malebrute", "maleslycynical",
-                "custom", "kakthu", "isis", "follower" // Added common modded keywords
+                "custom", "kakthu", "isis", "follower"
             };
 
             bool voiceMatch = false;
@@ -57,7 +58,6 @@ namespace EconomyManager
             }
 
             if (voiceMatch) {
-                // Additionally ensure they aren't some random guard or essential quest giver that shouldn't be recruited
                 if (base->IsUnique() && !a_actor->IsHostileToActor(player)) {
                     return true;
                 }
@@ -69,9 +69,9 @@ namespace EconomyManager
 
     int32_t CalculateRecruitmentCost(RE::Actor* a_actor)
     {
-        if (!a_actor) return 500;
+        if (!a_actor) return Settings::RecruitmentBaseCost;
         int32_t level = a_actor->GetLevel();
-        return 200 + (level * 20);
+        return Settings::RecruitmentBaseCost + (level * Settings::RecruitmentLevelMultiplier);
     }
 
     void SetPaid(RE::Actor* a_actor)
@@ -107,7 +107,7 @@ namespace EconomyManager
         if (it != paidFollowers.end() && it->second.isPaid) {
             auto now = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - it->second.realTimePaidAt).count();
-            return elapsed < 30;
+            return elapsed < Settings::GracePeriodDuration;
         }
         return false;
     }

@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "EconomyManager.h"
+#include "Settings.h"
 #include <RE/Skyrim.h>
 #include <SKSE/SKSE.h>
 #include <vector>
@@ -212,7 +213,7 @@ namespace RecruitmentHandler
             float currentTime = RE::Calendar::GetSingleton()->GetCurrentGameTime();
             if (currentTime - lastPay >= 7.0f) {
                 auto* goldObj = RE::TESForm::LookupByID<RE::TESBoundObject>(0x0000000F);
-                int32_t wage = 150;
+                int32_t wage = Settings::WeeklyWage;
                 if (player->GetItemCount(goldObj) >= wage) {
                     player->RemoveItem(goldObj, wage, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
                     EconomyManager::UpdateLastPaymentDay(actor, currentTime);

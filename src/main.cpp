@@ -50,12 +50,15 @@ void InitializeLogging()
     logger::info("No Free Service v1.0.0 initialized");
 }
 
+#include "Settings.h"
+
 SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 {
     InitializeLogging();
     SKSE::Init(a_skse);
     SKSE::AllocTrampoline(128);
 
+    Settings::Load();
     RecruitmentHandler::Install();
     SerializationManager::Register();
 
