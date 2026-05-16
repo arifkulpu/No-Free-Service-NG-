@@ -1,78 +1,50 @@
-# No Free Service (Skyrim SE Plugin)
+# No Free Service (NG)
 
-An SKSE plugin that ties the follower system to the economy with the philosophy "There is no free service!". Even your closest friends will now demand a price for their services.
+Skyrim SE/AE için geliştirilmiş, takipçi (follower) işe alımını daha gerçekçi ve ekonomik hale getiren bir SKSE eklentisidir. Artık kimse "bir iyilik" karşılığında sizinle ölüme gelmeyecek.
 
----
+## 🚀 Özellikler
 
-## 🇺🇸 English Description
+- **Dinamik İşe Alım Ücreti:** NPC'lerin seviyesine göre hesaplanan adil bir başlangıç bedeli.
+  - Formül: `Temel Ücret (500) + (NPC Seviyesi * Çarpan (50))`
+- **Haftalık Ödeme Sistemi:** Takipçileriniz artık sadece bir kere değil, haftalık olarak maaş ister.
+- **Otomatik Menü Enjeksiyonu:** Potansiyel bir takipçiyle konuşmaya başladığınız anda menü otomatik olarak açılır.
+- **AE 1.6.1170 Desteği:** En güncel Skyrim sürümüyle tam uyumlu ve stabil.
+- **Mod Uyumluluğu:** 3DNPC, Beyond Skyrim: Bruma ve diğer modlu takipçilerle sorunsuz çalışır.
+- **UI Dostu:** `SkyrimSoulsRE` ve `Status Indicator Framework` gibi popüler arayüz modlarıyla uyumluluk için UITask tabanlı çalışır.
 
-### 🚀 Features
+## ⚙️ Yapılandırma (INI)
 
-- **Interactive Recruitment Menu:** A recruitment cost menu automatically opens the moment you start talking to a potential follower.
-- **Dynamic Recruitment Cost:** Costs are calculated dynamically based on the NPC's level (Base: 500 Gold + 50 Gold per level).
-- **Weekly Wage System:** Followers demand a weekly wage (Default: 150 Gold). If unpaid, they will leave your service.
-- **Mandatory Neutralization:** Potential followers (including those from mods) remain "Neutral" until paid; they won't become allies for free.
-- **Smart Filtering:** Merchants, shopkeepers, and common citizens are automatically filtered out; only real follower candidates are charged.
-- **Grace Period:** Payment status is preserved for 30 seconds after payment, preventing re-triggering the menu if you exit dialogue.
-- **INI Configuration Support:** All prices and durations can be adjusted via `NoFreeService.ini`.
-
-### ⚙️ Configuration (INI)
-
-You can modify settings in `Data/SKSE/Plugins/NoFreeService.ini`:
+Ayarları `Data/SKSE/Plugins/NoFreeService.ini` dosyasından değiştirebilirsiniz:
 
 ```ini
 [General]
-RecruitmentBaseCost=500       ; Base recruitment cost
-RecruitmentLevelMultiplier=50 ; Additional cost per level
-WeeklyWage=150                ; Weekly wage amount
-GracePeriodDuration=30        ; Protection duration after payment (seconds)
+RecruitmentBaseCost=500       ; Temel işe alım bedeli
+RecruitmentLevelMultiplier=50 ; Seviye başı ek maliyet
+WeeklyWage=150                ; Haftalık maaş miktarı
+GracePeriodDuration=30        ; Ödeme sonrası koruma süresi (saniye)
 ```
 
-### 📥 Installation
+## 🛠️ Teknik Detaylar
 
-1.  Ensure **Address Library for SKSE Plugins** is installed.
-2.  Copy `NoFreeService.dll` to your `Data/SKSE/Plugins/` folder.
+- **Dil:** C++ (SKSE64)
+- **Kütüphane:** CommonLibSSE-NG
+- **Sürüm:** 1.0.0 (Stabil)
 
----
+## 📥 Kurulum
 
-## 🇹🇷 Türkçe Açıklama
-
-### 🚀 Özellikler
-
-- **İnteraktif İşe Alım Menüsü:** Bir yoldaş adayıyla konuşmaya başladığınız anda otomatik olarak hizmet bedeli menüsü açılır.
-- **Dinamik İşe Alım Ücreti:** NPC'nin seviyesine göre dinamik hesaplama (Temel: 500 Altın + Seviye Başı 50 Altın).
-- **Haftalık Maaş Sistemi:** Takipçileriniz haftalık maaş talep eder (Varsayılan: 150 Altın). Ödenmezse ayrılırlar.
-- **Zorunlu Nötrleştirme:** Ödeme yapılmadığı sürece potansiyel yoldaşlar size karşı "Nötr" kalır, bedavaya müttefik olmazlar.
-- **Akıllı Filtreleme:** Tüccarlar ve sıradan kasabalılar filtrelenir; sadece gerçek yoldaş adaylarından para istenir.
-- **Koruma Süresi (Grace Period):** Ödeme sonrası 30 saniye boyunca kayıt korunur.
-- **INI Konfigürasyon Desteği:** Tüm fiyatları `NoFreeService.ini` üzerinden ayarlayabilirsiniz.
-
-### ⚙️ Yapılandırma (INI)
-
-`Data/SKSE/Plugins/NoFreeService.ini` dosyasından ayarları değiştirebilirsiniz:
-
-```ini
-[General]
-RecruitmentBaseCost=500       ; Temel işe alım ücreti
-RecruitmentLevelMultiplier=50 ; Seviye başına eklenen ücret
-WeeklyWage=150                ; Haftalık ödenecek maaş
-GracePeriodDuration=30        ; Ödeme koruma süresi (saniye)
-```
-
-### 📥 Kurulum
-
-1.  **Address Library for SKSE Plugins** yüklü olduğundan emin olun.
-2.  `NoFreeService.dll` dosyasını `Data/SKSE/Plugins/` klasörüne kopyalayın.
+1. **Address Library for SKSE Plugins** yüklü olduğundan emin olun.
+2. `NoFreeService.dll` dosyasını `Data/SKSE/Plugins/` klasörüne kopyalayın.
 
 ---
 
-## 📜 Credits / Krediler
+## 🇬🇧 English Summary
 
-- **Developers / Geliştiriciler:** Arif KULPU & Antigravity (Google DeepMind Team)
-- **Infrastructure / Altyapı:** CommonLibSSE-NG & SKSE Team
+**No Free Service** is an SKSE plugin that adds a recruitment cost and weekly wage system for followers in Skyrim.
 
----
+- **Dynamic Cost:** Calculated based on NPC level.
+- **Automatic Menu:** Triggers when starting dialogue with potential followers.
+- **Version Support:** Fully compatible with Skyrim AE 1.6.1170.
+- **Compatibility:** Designed to work alongside major UI and follower mods.
 
-## ⚖️ License / Lisans
-
-Copyright (c) 2026 Arif KULPU. All Rights Reserved. — Tüm Hakları Saklıdır.
+### Installation
+Copy `NoFreeService.dll` to your `Data/SKSE/Plugins/` directory. Requires Address Library.

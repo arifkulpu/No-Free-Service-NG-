@@ -1,72 +1,77 @@
 #include "PCH.h"
 #include "EconomyManager.h"
-#include "SerializationManager.h"
+#include "RecruitmentHandler.h"
+#include "Settings.h"
 
-namespace RecruitmentHandler { 
-    void Install(); 
-    void Update();
+// AE için Versiyon Verisi
+extern "C" __declspec(dllexport) constinit SKSE::PluginVersionData SKSEPlugin_Version = []() {
+    SKSE::PluginVersionData v;
+    v.PluginVersion(REL::Version{ 1, 0, 0, 0 });
+    v.PluginName("NoFreeService");
+    v.AuthorName("Antigravity");
+    v.UsesAddressLibrary();
+    v.UsesUpdatedStructs();
+    v.CompatibleVersions({ SKSE::RUNTIME_SSE_LATEST_AE });
+    return v;
+}();
+
+void InitializeLogging()
+{
+    auto path = SKSE::log::log_directory();
+    if (!path) return;
+
+    *path /= "NoFreeService.log";
+
+    auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string(), true);
+    auto log = std::make_shared<spdlog::logger>("global log", std::move(sink));
+
+    log->set_level(spdlog::level::info);
+    log->flush_on(spdlog::level::info);
+
+    spdlog::set_default_logger(std::move(log));
+    spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%f] [%l] %v");
+    
+    SKSE::log::info("Logging initialized - V3.");
 }
 
-/**
- * SKSE Plugin Information
- */
-SKSEPluginInfo(
-    .Version = { 1, 0, 0, 0 },
-    .Name = "NoFreeService",
-    .Author = "Antigravity",
-    .SupportEmail = "",
-    .StructCompatibility = SKSE::StructCompatibility::Independent,
-    .RuntimeCompatibility = SKSE::VersionIndependence::AddressLibrary
-)
-
-/**
- * Hook for Player Update Loop
- * This is much more reliable than RE::Main in AE.
- */
-struct PlayerUpdateHook
+void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
 {
-    static void Hook_Update(RE::PlayerCharacter* a_this, float a_delta)
+    if (a_msg->type == SKSE::MessagingInterface::kDataLoaded) {
+        Settings::Load();
+        RecruitmentHandler::Install();
+    }
+}
+
+struct MainUpdateHook
+{
+    static void Hook_Update(RE::Main* a_this, float a_delta)
     {
         func(a_this, a_delta);
         RecruitmentHandler::Update();
     }
-
     static inline REL::Relocation<decltype(Hook_Update)> func;
 };
 
-void InitializeLogging()
+void InitializeHook()
 {
-    auto path = logger::log_directory();
-    if (!path) return;
-
-    *path /= "NoFreeService.log"sv;
-    auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string(), true);
-    auto log = std::make_shared<spdlog::logger>("global log"s, std::move(sink));
-    log->set_level(spdlog::level::info);
-    log->flush_on(spdlog::level::info);
-    spdlog::set_default_logger(std::move(log));
-    spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%l] %v"s);
-
-    logger::info("No Free Service v1.0.0 initialized");
+    REL::Relocation<std::uintptr_t> mainVTable{ RE::VTABLE_Main[0] };
+    MainUpdateHook::func = mainVTable.write_vfunc(0x1, MainUpdateHook::Hook_Update);
 }
 
-#include "Settings.h"
-
-SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
+extern "C" __declspec(dllexport) bool SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 {
     InitializeLogging();
+    SKSE::log::info("Plugin Loading...");
+
     SKSE::Init(a_skse);
-    SKSE::AllocTrampoline(128);
 
-    Settings::Load();
-    RecruitmentHandler::Install();
-    SerializationManager::Register();
+    auto* messaging = SKSE::GetMessagingInterface();
+    if (messaging) {
+        messaging->RegisterListener(MessageHandler);
+    }
 
-    // Hook PlayerCharacter::Update (Index 0xAD / 173)
-    REL::Relocation<std::uintptr_t> playerVTable{ RE::VTABLE_PlayerCharacter[0] };
-    PlayerUpdateHook::func = playerVTable.write_vfunc(0xAD, PlayerUpdateHook::Hook_Update);
-
-    logger::info("No Free Service: Player update hook installed at index 0xAD.");
+    InitializeHook();
+    SKSE::log::info("Plugin Loaded Successfully.");
 
     return true;
 }
