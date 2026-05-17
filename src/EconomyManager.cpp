@@ -181,20 +181,20 @@ namespace EconomyManager
                     if (remaining <= 30 && remaining > 20 && !status.notified30) {
                         char buf[256];
                         if (status.hasDismissedTime) {
-                            snprintf(buf, sizeof(buf), "%s ucretsiz ise alimi icin son 30 saniye!", actor->GetName());
+                            snprintf(buf, sizeof(buf), "[%s] Free re-hire window closes in 30 seconds!", actor->GetName());
                         } else {
-                            snprintf(buf, sizeof(buf), "Ucretini odediginiz %s ise alimi icin son 30 saniye!", actor->GetName());
+                            snprintf(buf, sizeof(buf), "[%s] Recruitment window closes in 30 seconds!", actor->GetName());
                         }
                         RE::DebugNotification(buf);
                         status.notified30 = true;
                     } else if (remaining <= 20 && remaining > 10 && !status.notified20) {
                         char buf[256];
-                        snprintf(buf, sizeof(buf), "%s icin kalan sure: 20 saniye", actor->GetName());
+                        snprintf(buf, sizeof(buf), "[%s] 20 seconds remaining!", actor->GetName());
                         RE::DebugNotification(buf);
                         status.notified20 = true;
                     } else if (remaining <= 10 && remaining > 0 && !status.notified10) {
                         char buf[256];
-                        snprintf(buf, sizeof(buf), "%s icin kalan sure: 10 saniye", actor->GetName());
+                        snprintf(buf, sizeof(buf), "[%s] 10 seconds remaining!", actor->GetName());
                         RE::DebugNotification(buf);
                         status.notified10 = true;
                     }
