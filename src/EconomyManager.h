@@ -14,6 +14,8 @@ namespace EconomyManager
     
     void UpdateLastPaymentDay(RE::Actor* a_actor, float a_day);
     float GetLastPaymentDay(RE::Actor* a_actor);
+
+    void UpdateFollowerPaymentStates();
     
     std::map<RE::FormID, bool> GetPaidMap();
     std::map<RE::FormID, float> GetPaymentDayMap();

@@ -101,7 +101,7 @@ namespace RecruitmentHandler
                     RE::FormID speakerID = speaker->formID;
                     SKSE::GetTaskInterface()->AddUITask([speakerID]() {
                         auto* actor = RE::TESForm::LookupByID<RE::Actor>(speakerID);
-                        if (actor && !EconomyManager::HasBeenPaid(actor)) {
+                        if (actor && !actor->IsPlayerTeammate() && !EconomyManager::HasBeenPaid(actor)) {
                             if (EconomyManager::IsPotentialFollower(actor)) {
                                 if (RecruitmentHandler::showingMenuFor != speakerID) {
                                     RecruitmentHandler::showingMenuFor = speakerID;
@@ -127,20 +127,8 @@ namespace RecruitmentHandler
         if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - lastCheck).count() < 2000) return;
         lastCheck = std::chrono::steady_clock::now();
 
-        auto* processLists = RE::ProcessLists::GetSingleton();
-        if (processLists) {
-            // Manual iterasyon yerine engine'in ForEachHighActor'ını kullanmak daha güvenli (SIF gibi modlarla çakışmayı önler)
-            processLists->ForEachHighActor([player](RE::Actor* actor) {
-                if (actor && !actor->IsPlayerRef() && EconomyManager::IsPotentialFollower(actor) && !EconomyManager::HasBeenPaid(actor)) {
-                    if (actor->IsPlayerTeammate()) {
-                         actor->GetActorRuntimeData().boolBits.reset(RE::Actor::BOOL_BITS::kPlayerTeammate);
-                         SetRank(actor, player, 0);
-                         actor->EvaluatePackage(true, false);
-                    }
-                }
-                return RE::BSContainer::ForEachResult::kContinue;
-            });
-        }
+        // Update real-time payment states (grace period and dismissal expirations)
+        EconomyManager::UpdateFollowerPaymentStates();
     }
  
     void Install() {

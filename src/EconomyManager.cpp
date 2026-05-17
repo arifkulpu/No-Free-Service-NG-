@@ -11,6 +11,12 @@ namespace EconomyManager
         bool isPaid = false;
         float lastPaymentDay = 0.0f;
         std::chrono::steady_clock::time_point realTimePaidAt;
+        bool wasTeammate = false;
+        std::chrono::steady_clock::time_point dismissedAt;
+        bool hasDismissedTime = false;
+        bool notified30 = false;
+        bool notified20 = false;
+        bool notified10 = false;
     };
 
     static std::map<RE::FormID, PaidStatus> paidFollowers;
@@ -68,9 +74,16 @@ namespace EconomyManager
 
     void SetPaid(RE::Actor* a_actor) {
         if (a_actor) {
+            logger::info("SetPaid: Actor {:X} ({}) marked as paid. Cost: {}", 
+                a_actor->formID, a_actor->GetName(), CalculateRecruitmentCost(a_actor));
             auto& status = paidFollowers[a_actor->formID];
             status.isPaid = true;
             status.realTimePaidAt = std::chrono::steady_clock::now();
+            status.wasTeammate = a_actor->IsPlayerTeammate();
+            status.hasDismissedTime = false;
+            status.notified30 = false;
+            status.notified20 = false;
+            status.notified10 = false;
         }
     }
 
@@ -82,6 +95,10 @@ namespace EconomyManager
         if (!a_actor) return false;
         auto it = paidFollowers.find(a_actor->formID);
         return (it != paidFollowers.end() && it->second.isPaid);
+    }
+
+    bool IsInGracePeriod(RE::Actor* a_actor) {
+        return HasBeenPaid(a_actor);
     }
 
     void UpdateLastPaymentDay(RE::Actor* a_actor, float a_day) {
@@ -107,11 +124,92 @@ namespace EconomyManager
     }
 
     void SetPaidFromLoad(RE::FormID a_id, bool a_paid) {
-        paidFollowers[a_id].isPaid = a_paid;
-        paidFollowers[a_id].realTimePaidAt = std::chrono::steady_clock::now();
+        auto& status = paidFollowers[a_id];
+        status.isPaid = a_paid;
+        status.realTimePaidAt = std::chrono::steady_clock::now();
+        status.wasTeammate = false;
+        status.hasDismissedTime = false;
+        status.notified30 = false;
+        status.notified20 = false;
+        status.notified10 = false;
     }
 
     void SetPaymentDayFromLoad(RE::FormID a_id, float a_day) {
         paidFollowers[a_id].lastPaymentDay = a_day;
+    }
+
+    void UpdateFollowerPaymentStates() {
+        auto now = std::chrono::steady_clock::now();
+        for (auto& [id, status] : paidFollowers) {
+            if (!status.isPaid) {
+                continue;
+            }
+
+            auto* actor = RE::TESForm::LookupByID<RE::Actor>(id);
+            logger::info("UpdateFollowerPaymentStates: Checking actor ID {:X}, found pointer: {}", id, (void*)actor);
+            if (actor) {
+                bool isTeammate = actor->IsPlayerTeammate();
+                if (isTeammate) {
+                    if (!status.wasTeammate) {
+                        logger::info("UpdateFollowerPaymentStates: Actor {:X} ({}) detected as player teammate.", id, actor->GetName());
+                    }
+                    status.wasTeammate = true;
+                    status.hasDismissedTime = false;
+                } else {
+                    if (status.wasTeammate) {
+                        logger::info("UpdateFollowerPaymentStates: Actor {:X} ({}) was teammate but is now dismissed. Starting grace period timer.", id, actor->GetName());
+                        status.wasTeammate = false;
+                        status.dismissedAt = now;
+                        status.hasDismissedTime = true;
+                        status.notified30 = false;
+                        status.notified20 = false;
+                        status.notified10 = false;
+                    }
+                }
+
+                // Expiration and Notification checks (only runs if actor is valid and not a teammate)
+                if (!isTeammate) {
+                    long long elapsed = 0;
+                    if (status.hasDismissedTime) {
+                        elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - status.dismissedAt).count();
+                    } else {
+                        elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - status.realTimePaidAt).count();
+                    }
+
+                    long long remaining = Settings::GracePeriodDuration - elapsed;
+
+                    if (remaining <= 30 && remaining > 20 && !status.notified30) {
+                        char buf[256];
+                        if (status.hasDismissedTime) {
+                            snprintf(buf, sizeof(buf), "%s ucretsiz ise alimi icin son 30 saniye!", actor->GetName());
+                        } else {
+                            snprintf(buf, sizeof(buf), "Ucretini odediginiz %s ise alimi icin son 30 saniye!", actor->GetName());
+                        }
+                        RE::DebugNotification(buf);
+                        status.notified30 = true;
+                    } else if (remaining <= 20 && remaining > 10 && !status.notified20) {
+                        char buf[256];
+                        snprintf(buf, sizeof(buf), "%s icin kalan sure: 20 saniye", actor->GetName());
+                        RE::DebugNotification(buf);
+                        status.notified20 = true;
+                    } else if (remaining <= 10 && remaining > 0 && !status.notified10) {
+                        char buf[256];
+                        snprintf(buf, sizeof(buf), "%s icin kalan sure: 10 saniye", actor->GetName());
+                        RE::DebugNotification(buf);
+                        status.notified10 = true;
+                    }
+
+                    if (remaining <= 0) {
+                        if (status.hasDismissedTime) {
+                            logger::info("UpdateFollowerPaymentStates: Actor {:X} ({}) dismissal grace period expired. Clearing paid status.", id, actor->GetName());
+                        } else {
+                            logger::info("UpdateFollowerPaymentStates: Actor {:X} ({}) payment validity expired (never recruited). Clearing paid status.", id, actor->GetName());
+                        }
+                        status.isPaid = false;
+                        status.hasDismissedTime = false;
+                    }
+                }
+            }
+        }
     }
 }

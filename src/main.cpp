@@ -2,6 +2,7 @@
 #include "EconomyManager.h"
 #include "RecruitmentHandler.h"
 #include "Settings.h"
+#include "SerializationManager.h"
 
 // AE için Versiyon Verisi
 extern "C" __declspec(dllexport) constinit SKSE::PluginVersionData SKSEPlugin_Version = []() {
@@ -42,9 +43,9 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
     }
 }
 
-struct MainUpdateHook
+struct PlayerUpdateHook
 {
-    static void Hook_Update(RE::Main* a_this, float a_delta)
+    static void Hook_Update(RE::PlayerCharacter* a_this, float a_delta)
     {
         func(a_this, a_delta);
         RecruitmentHandler::Update();
@@ -54,8 +55,8 @@ struct MainUpdateHook
 
 void InitializeHook()
 {
-    REL::Relocation<std::uintptr_t> mainVTable{ RE::VTABLE_Main[0] };
-    MainUpdateHook::func = mainVTable.write_vfunc(0x1, MainUpdateHook::Hook_Update);
+    REL::Relocation<std::uintptr_t> playerVTable{ RE::VTABLE_PlayerCharacter[0] };
+    PlayerUpdateHook::func = playerVTable.write_vfunc(0xAD, PlayerUpdateHook::Hook_Update);
 }
 
 extern "C" __declspec(dllexport) bool SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
@@ -69,6 +70,8 @@ extern "C" __declspec(dllexport) bool SKSEPlugin_Load(const SKSE::LoadInterface*
     if (messaging) {
         messaging->RegisterListener(MessageHandler);
     }
+
+    SerializationManager::Register();
 
     InitializeHook();
     SKSE::log::info("Plugin Loaded Successfully.");
