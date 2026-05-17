@@ -35,35 +35,53 @@ namespace EconomyManager
 
     bool IsPotentialFollower(RE::Actor* a_actor)
     {
-        if (!a_actor || a_actor->IsDead() || a_actor->IsPlayerRef()) return false;
-        if (a_actor->IsGuard() || a_actor->IsChild()) return false;
+        if (!a_actor) return false;
+        if (a_actor->IsDead()) { logger::info("IsPotentialFollower: {} rejected (IsDead)", a_actor->GetName()); return false; }
+        if (a_actor->IsPlayerRef()) { return false; }
+        if (a_actor->IsGuard()) { logger::info("IsPotentialFollower: {} rejected (IsGuard)", a_actor->GetName()); return false; }
+        if (a_actor->IsChild()) { logger::info("IsPotentialFollower: {} rejected (IsChild)", a_actor->GetName()); return false; }
         
         auto* base = a_actor->GetActorBase();
         if (!base) return false;
 
-        // Özel Karakter Filtreleri
-        if (a_actor->GetActorRuntimeData().vendorFaction != nullptr) return false;
-        if (IsHousecarl(a_actor)) return false;
-
-        // 1. Standart Takipçi Faction'ları (Modlu takipçilerin %99'u buna dahildir)
-        static auto* potentialFaction = RE::TESForm::LookupByID<RE::TESFaction>(0x0005C84E);
-        static auto* currentFaction = RE::TESForm::LookupByID<RE::TESFaction>(0x00017433);
-        if (potentialFaction && a_actor->IsInFaction(potentialFaction)) return true;
-        if (currentFaction && a_actor->IsInFaction(currentFaction)) return true;
-
-        // 2. İlişki Kontrolü (Daha önce konuştuğumuz "sorunlu kodu" burada güvenli hale getirdik)
-        auto* player = RE::PlayerCharacter::GetSingleton();
-        if (player && RecruitmentHandler::GetRank(a_actor, player) > 0) return true;
-
-        // 3. Mod Karakterleri için Özel İstisna: 
-        // Eğer karakter bir moddan geliyorsa VE "Unique" ise (modlu takipçilerin çoğu unique'dir)
-        uint8_t modIdx = (base->formID >> 24) & 0xFF;
-        if (modIdx > 0x04 && base->IsUnique()) {
-             // Burada Armion gibi karakterleri süzmek için ek bir "Essential" veya "VoiceType" kontrolü gerekebilir 
-             // ama Unique olması genellikle takipçi adayları için yeterlidir.
-             return true; 
+        // 2. Özel Karakter Filtreleri (Satıcılar, Jarl'lar vs.)
+        // Eğer aktör daha önce bizim listemize girdiyse (isPaid false olsa bile haritadadır), o kesinlikle bir yoldaştır, satıcı filtresini atla.
+        bool hasEverBeenPaid = (paidFollowers.find(a_actor->formID) != paidFollowers.end());
+        
+        if (!hasEverBeenPaid) {
+            if (a_actor->GetActorRuntimeData().vendorFaction != nullptr) {
+                logger::info("IsPotentialFollower: {} rejected (vendorFaction != nullptr)", a_actor->GetName());
+                return false;
+            }
+            if (IsHousecarl(a_actor)) {
+                logger::info("IsPotentialFollower: {} rejected (IsHousecarl)", a_actor->GetName());
+                return false;
+            }
+        } else {
+            logger::info("IsPotentialFollower: {} bypassed vendor check (hasEverBeenPaid = true)", a_actor->GetName());
         }
 
+        // 3. Standart Takipçi Faction'ları
+        static auto* potentialFaction = RE::TESForm::LookupByID<RE::TESFaction>(0x0005C84E);
+        static auto* currentFaction = RE::TESForm::LookupByID<RE::TESFaction>(0x00017433);
+        if (potentialFaction && a_actor->IsInFaction(potentialFaction)) {
+            logger::info("IsPotentialFollower: {} is in PotentialFollowerFaction", a_actor->GetName());
+            return true;
+        }
+        if (currentFaction && a_actor->IsInFaction(currentFaction)) {
+            logger::info("IsPotentialFollower: {} is in CurrentFollowerFaction", a_actor->GetName());
+            return true;
+        }
+
+        // 4. Mod Karakterleri için Özel İstisna (Unique ve Faction'sız mod takipçileri)
+        uint8_t modIdx = (base->formID >> 24) & 0xFF;
+        bool isUnique = base->IsUnique();
+        if (modIdx > 0x04 && isUnique) {
+            logger::info("IsPotentialFollower: {} is a unique mod character (modIdx {:X})", a_actor->GetName(), modIdx);
+            return true; 
+        }
+
+        logger::info("IsPotentialFollower: {} failed all checks (modIdx: {:X}, unique: {})", a_actor->GetName(), modIdx, isUnique);
         return false;
     }
 

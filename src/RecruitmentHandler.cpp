@@ -101,13 +101,27 @@ namespace RecruitmentHandler
                     RE::FormID speakerID = speaker->formID;
                     SKSE::GetTaskInterface()->AddUITask([speakerID]() {
                         auto* actor = RE::TESForm::LookupByID<RE::Actor>(speakerID);
-                        if (actor && !actor->IsPlayerTeammate() && !EconomyManager::HasBeenPaid(actor)) {
-                            if (EconomyManager::IsPotentialFollower(actor)) {
-                                if (RecruitmentHandler::showingMenuFor != speakerID) {
-                                    RecruitmentHandler::showingMenuFor = speakerID;
-                                    RecruitmentHandler::CloseDialogue();
-                                    int32_t cost = EconomyManager::CalculateRecruitmentCost(actor);
-                                    RecruitmentHandler::ShowRecruitmentMenu(actor, cost);
+                        if (actor) {
+                            bool isTeammate = actor->IsPlayerTeammate();
+                            bool hasBeenPaid = EconomyManager::HasBeenPaid(actor);
+                            bool isPotential = EconomyManager::IsPotentialFollower(actor);
+                            
+                            logger::info("Dialogue Opened - Actor {:X} ({}): isTeammate: {}, hasPaid: {}, isPotential: {}, showingMenuFor: {:X}", 
+                                speakerID, actor->GetName(), isTeammate, hasBeenPaid, isPotential, RecruitmentHandler::showingMenuFor);
+
+                            if (!isTeammate && !hasBeenPaid) {
+                                if (isPotential) {
+                                    if (RecruitmentHandler::showingMenuFor != speakerID) {
+                                        logger::info("Showing payment menu for {}", actor->GetName());
+                                        RecruitmentHandler::showingMenuFor = speakerID;
+                                        RecruitmentHandler::CloseDialogue();
+                                        int32_t cost = EconomyManager::CalculateRecruitmentCost(actor);
+                                        RecruitmentHandler::ShowRecruitmentMenu(actor, cost);
+                                    } else {
+                                        logger::info("Menu is already being shown for {}", actor->GetName());
+                                    }
+                                } else {
+                                    logger::info("Actor {} is not a potential follower", actor->GetName());
                                 }
                             }
                         }

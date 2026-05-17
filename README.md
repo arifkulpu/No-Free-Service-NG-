@@ -16,9 +16,11 @@ An SKSE64 plugin for Skyrim SE/AE that makes follower recruitment more realistic
 *   **Otomatik Menü Enjeksiyonu:** Potansiyel bir takipçiyle konuşmaya başladığınız anda diyalog penceresi kapanır ve ödeme menüsü otomatik olarak açılır.
 *   **⏱️ Gerçek Zamanlı Koruma ve Süre Aşımı (Yeni!)**:
     *   **İşe Alım Penceresi:** Ödeme yapıldıktan sonra yoldaşı işe almak için **30 saniyelik** gerçek zamanlı bir pencereniz olur. Bu sürede işe alınmazsa yapılan ödeme zaman aşımına uğrar ve yoldaş tekrar para ister.
-    *   **Kazara Kovulma Koruması:** Bir yoldaşı kovduğunuzda, **30 saniyelik** bir koruma (tolerans) süresi başlar. Bu süre zarfında yoldaşı ücretsiz olarak tekrar ekibe katabilirsiniz. Kovulma anından itibaren 30 saniye geçtikten sonra yoldaş tekrar işe alınmak için tam ödeme talep eder.
+    *   **Kazara Kovulma Koruması:** Bir yoldaşı kovduğunuzda, **30 saniyelik** bir koruma (tolerans) süresi başlar. Bu süre zarfında yoldaşı ücretsiz olarak tekrar ekibe katabilirsiniz. Kovulma anından itibaren 30 saniye geçtikten sonra yoldaş tekrar işe alınmak için tam ödeme talep eder. Ekranda görsel geri sayım bildirimleri mevcuttur.
+*   **Akıllı Satıcı Filtresi:** Eklenti, modlarla eklenen yeni tüccarların sizden yanlışlıkla para istemesini engellerken; özel yoldaşları hafızasında tutarak tüccar olsalar bile doğru bir şekilde takip eder.
+*   **Güvenli İlişki Kontrolü:** Sadece "aranız iyi" diye rastgele hancıların veya dost köylülerin sizden haksız yere yoldaşlık ücreti istemesi tamamen engellendi.
 *   **AE 1.6.1170 Desteği:** En güncel Skyrim sürümüyle tam uyumlu, kararlı ve performanslı.
-*   **Geniş Mod Uyumluluğu:** 3DNPC, Beyond Skyrim: Bruma ve diğer özel modlu takipçilerle kusursuz çalışır.
+*   **Geniş Mod Uyumluluğu:** 3DNPC, Beyond Skyrim: Bruma, *The Price of Loyalty* ve diğer özel modlu takipçilerle (ve haydutlarla) kusursuz bir şekilde çakışmadan çalışır.
 *   **Arayüz Dostu:** `SkyrimSoulsRE` ve `Status Indicator Framework` gibi popüler arayüz modlarıyla çakışmayı önlemek için thread-safe `UITask` tabanlı çalışır.
 *   **Sorunsuz Kayıt (Save/Load) Sistemi:** Yoldaşların ödeme ve zaman aşımı durumları oyun kaydedildiğinde korunur ve yüklendiğinde kaldığı yerden devam eder.
 
